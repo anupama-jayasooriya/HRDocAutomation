@@ -25,16 +25,41 @@ export default function CandidateDetailPage() {
   const { id } = useParams()
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+
+  async function fetchCandidate() {
+    const res = await fetch(`/api/candidates/${id}`)
+    const data = await res.json()
+    setCandidate(data)
+    setLoading(false)
+  }
 
   useEffect(() => {
-    async function fetchCandidate() {
-      const res = await fetch(`/api/candidates/${id}`)
-      const data = await res.json()
-      setCandidate(data)
-      setLoading(false)
-    }
     fetchCandidate()
   }, [id])
+
+  async function handleGenerate() {
+    if (!candidate) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidateId: candidate.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert('Failed to generate documents: ' + (data?.error ?? res.statusText))
+        return
+      }
+      fetchCandidate()
+    } catch (error) {
+      console.error(error)
+      alert('Failed to generate documents')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -54,34 +79,29 @@ export default function CandidateDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900">HR Document Portal</h1>
           <Link href="/dashboard/candidates" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Back to Candidates
+            Back to Candidates
           </Link>
         </div>
       </nav>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{candidate.fullName}</h2>
             <p className="text-gray-500 text-sm mt-1">{candidate.position} · {candidate.department}</p>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href={`/dashboard/candidates/${candidate.id}/edit`}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition"
-            >
-              Edit
-            </Link>
-          </div>
+          <Link
+            href={`/dashboard/candidates/${candidate.id}/edit`}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition"
+          >
+            Edit
+          </Link>
         </div>
 
-        {/* Candidate Info */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Candidate Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,7 +143,7 @@ export default function CandidateDetailPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Salary / Allowance</p>
-             <p className="text-gray-900 font-medium mt-1">Rs. {candidate.salary?.toLocaleString() ?? '0'}</p>
+              <p className="text-gray-900 font-medium mt-1">Rs. {candidate.salary?.toLocaleString() ?? '0'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Start Date</p>
@@ -136,29 +156,37 @@ export default function CandidateDetailPage() {
           </div>
         </div>
 
-        {/* Documents Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Generated Documents</h3>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-              Generate Documents
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {generating ? 'Generating...' : 'Generate Documents'}
             </button>
           </div>
           {(candidate.documents?.length ?? 0) === 0 ? (
-            <p className="text-gray-500 text-sm">No documents generated yet. Click "Generate Documents" to create them.</p>
+            <p className="text-gray-500 text-sm">No documents generated yet. Click Generate Documents to create them.</p>
           ) : (
             <ul className="space-y-2">
               {candidate.documents.map((doc: any) => (
                 <li key={doc.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <span className="text-sm text-gray-700">{doc.documentType}</span>
-                  <a href={doc.fileUrl} target="_blank" className="text-blue-600 text-sm hover:underline">Download</a>
+                  <a
+                    href={doc.fileUrl}
+                    download={`${doc.documentType}-${candidate.fullName}.pdf`}
+                    className="text-blue-600 text-sm hover:underline"
+                  >
+                    Download
+                  </a>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* Email Status */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Status</h3>
           {(candidate.emailLogs?.length ?? 0) === 0 ? (
