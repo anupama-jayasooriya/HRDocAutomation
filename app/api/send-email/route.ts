@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       candidate.fullName,
       candidate.email,
       candidate.position,
-      candidate.documents.map((doc) => ({
+      candidate.documents.map((doc: { documentType: string; fileUrl: string }) => ({
         documentType: doc.documentType,
         fileUrl: doc.fileUrl,
       }))
